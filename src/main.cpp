@@ -7,19 +7,26 @@
 #include <vector>
 #include <algorithm>
 #include <time.h>
+#include <math.h>
+#include <string> 
 
 #include "Entity.h"
 #include "Engine.h"
 Engine engine;
 
 TTF_Font* gFont;
-
 extern int WINDOW_WIDTH;
 extern int WINDOW_HEIGHT;
 inline int ENTITY_SIZE = 25;
 //inline int ENTITY_RADIUS = 12;
 
+SDL_Texture* infoTextTexture;
+std::string infoText = "first time";
 std::vector<Entity*> entitys;
+
+void restart();
+void start();
+
 
 void process_input() {
 	SDL_Event event;
@@ -32,6 +39,9 @@ void process_input() {
 	    case SDL_KEYDOWN:
 		    if (event.key.keysym.sym == SDLK_ESCAPE) {
 		    	game_is_running = false;
+		    }
+		    if (event.key.keysym.sym == SDLK_r) {
+                restart();
 		    }
 		    break;
 	}
@@ -71,8 +81,25 @@ void setup() {
 	// gTextTexture = renderText("Atduyar", gFont, (SDL_Color){0xFF,0xFF,0xFF,0xFF}, gRenderer);
 }
 
+int speed = 4;
+int winCounter[3] = {0};
 void update() {
+	SDL_SetRenderDrawColor(gRenderer, 30, 27, 25, 20);
+	SDL_RenderClear(gRenderer);
+    SDL_SetRenderDrawColor(gRenderer, 255, 0, 0, 255 );
+    
+    RPS finishRps = entitys[0]->getRps();
+    bool finish = true;
     for(size_t i = 0; i < entitys.size();++i){
+        SDL_Point avgPoz = {WINDOW_WIDTH, WINDOW_HEIGHT};
+        
+        for(size_t j = 0; j < i+1;++j){
+            if(entitys[i]->getRps()>>GetPrey == entitys[j]->getRps()){
+                SDL_Point temp =  entitys[j]->getPoz() - entitys[i]->getPoz();
+                if(abs(temp.x) + abs(temp.y) < abs(avgPoz.x) + abs(avgPoz.y)) avgPoz = temp;
+            }
+        }
+
         for(size_t j = i+1; j < entitys.size();++j){
             if(entitys[i]->collision(*entitys[j])){
                 if(entitys[i]->getRps()>>GetPrey == entitys[j]->getRps()){
@@ -82,27 +109,67 @@ void update() {
                     entitys[i]->setRps(entitys[j]->getRps());
                 }
             }
+            if(entitys[i]->getRps()>>GetPrey == entitys[j]->getRps()){
+                SDL_Point temp =  entitys[j]->getPoz() - entitys[i]->getPoz();
+                if(abs(temp.x) + abs(temp.y) < abs(avgPoz.x) + abs(avgPoz.y)) avgPoz = temp;
+            }
         }
+        if(avgPoz.x + avgPoz.y == WINDOW_WIDTH + WINDOW_HEIGHT) avgPoz = {0, 0};
+        else{
+            SDL_RenderDrawLine(gRenderer, entitys[i]->getPoz().x, entitys[i]->getPoz().y, entitys[i]->getPoz().x + avgPoz.x, entitys[i]->getPoz().y + avgPoz.y);
+        
+            double angle = atan2(avgPoz.x, avgPoz.y);
+            //std::cout << sin(angle)*speed << " - "  << cos(angle)*speed << std::endl;
+            entitys[i]->moveF({(float)sin(angle)*speed, (float)cos(angle)*speed});
+        }
+        if(finishRps != entitys[i]->getRps()) finish = false;
+    }
+    if(finish){
+        winCounter[finishRps] ++;
+        infoText = "r:" + std::to_string(winCounter[0]) + " p:" + std::to_string(winCounter[1]) + " s:" + std::to_string(winCounter[2]) + "        " + ToString(finishRps) ;
+        std::cout << "r:"<< winCounter[0] << " p:" << winCounter[1] << " s:" << winCounter[2] << "\t" << ToString(finishRps) << std::endl;
+        restart();
     }
 }
 
 SDL_Rect testR;
 void render() {
-	SDL_SetRenderDrawColor(gRenderer, 30, 27, 25, 20);
-	SDL_RenderClear(gRenderer);
+	// SDL_SetRenderDrawColor(gRenderer, 30, 27, 25, 20);
+	// SDL_RenderClear(gRenderer);
 
     for(auto* entity : entitys){
         entity->draw();
         //std::cout << *entity << std::endl;
     }
 
+	SDL_Surface *surf = TTF_RenderText_Blended(gFont, infoText.c_str(), {0xFF,0xFF,0xFF,0xFF});
+	if (surf == nullptr){
+		std::cout << " ERROR TTF_RenderText";
+		return ;
+	}
+
+	infoTextTexture = SDL_CreateTextureFromSurface(gRenderer, surf);
+	if (infoTextTexture == nullptr){
+		std::cout << " ERROR CreateTexture";
+	}
+	//Clean up the surface and font
+    testR = {0, 0, surf->w, surf->h};
+	SDL_RenderCopy(gRenderer, infoTextTexture, NULL, &testR);
+	SDL_FreeSurface(surf);
 	//SDL_RenderCopy(gRendgit checkout mastergit checkout mastererer, gRPSTexture[Rock], NULL, &testR);
     //SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255 );
 	//SDL_RenderDrawRect(gRenderer, &testR);
 
 	SDL_RenderPresent(gRenderer);
 }
-
+void restart(){
+    entitys.clear();
+    start();
+}
+void start(){
+    for(int i = 0; i < 90;++i) entitys.push_back(new Entity(RPS(rand()%3), 
+        {rand() % WINDOW_WIDTH, rand() % WINDOW_HEIGHT} ));
+}
 
 int main(int argc, char* args[]) {
 	srand(time(0));
@@ -111,8 +178,7 @@ int main(int argc, char* args[]) {
     WINDOW_HEIGHT = 720;
     testR = {WINDOW_WIDTH/4*1, WINDOW_HEIGHT/4*1, 25, 25};
     
-    for(int i = 0; i < 60;++i) entitys.push_back(new Entity(RPS(rand()%3), 
-        {rand() % WINDOW_WIDTH, rand() % WINDOW_HEIGHT} ));
+    start();
 
 	engine.start(setup, process_input, update, render);
 
