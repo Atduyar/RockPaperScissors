@@ -2,11 +2,9 @@ CC=g++
 CFLAGS= -std=c++17 \
 	-Wall \
 	-I"lib" \
-	`sdl2-config --cflags` \
-LIBS= `sdl2-config --libs` \
-	-lSDL2main \
-	-lSDL2_image \
-	-lSDL2_ttf
+	`sdl2-config --cflags`
+LIBS= `pkg-config --libs sdl2 SDL2_image SDL2_ttf`
+	
 
 SRC=src
 OBJ=obj
@@ -19,7 +17,7 @@ BIN=$(BINDIR)/main
 
 $(BIN): $(OBJS) 
 	mkdir -p $(BINDIR)
-	$(CC) $^ -o $@ $(CFLAGS) 
+	$(CC) $^ -o $@ $(CFLAGS) $(LIBS)
 	$(info ----compile $@----)
 
 $(OBJ)/%.o: $(SRC)/%.cpp
